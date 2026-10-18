@@ -117,36 +117,39 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     update_db("UPDATE gunluk_durum SET beklenen_islem = 'gun_basi' WHERE id = 1")
 
+async def gun_sonu_kapat_komut(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await gun_sonu_kapat(update)
+
 async def mesaj_yoneticisi(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
     v = get_veri()
     bekleyen = v.get('beklenen_islem')
 
-    # 1. Menü Butonları (Her an basılabilir, anında işlem değiştirir)
-    if text == "🍽 Salon Satışı":
+    # Emojisiz veya esnek eşleşme için kontrol (Buton takılmalarına son)
+    if "salon satışı" in text.lower():
         update_db("UPDATE gunluk_durum SET beklenen_islem = 'salon' WHERE id = 1")
         await update.message.reply_text("🍽 Kaç adet *SALON* satışı yapıldı? (Sadece sayı girin)", reply_markup=ana_klavye(), parse_mode='Markdown')
         return
-    elif text == "📦 Paket Satışı":
+    elif "paket satışı" in text.lower():
         update_db("UPDATE gunluk_durum SET beklenen_islem = 'paket' WHERE id = 1")
         await update.message.reply_text("📦 Kaç adet *PAKET* satışı yapıldı? (Sadece sayı girin)", reply_markup=ana_klavye(), parse_mode='Markdown')
         return
-    elif text == "🥖 Fırın Ekmek Ekle":
+    elif "fırın ekmek ekle" in text.lower():
         update_db("UPDATE gunluk_durum SET beklenen_islem = 'ekmek' WHERE id = 1")
         await update.message.reply_text("🥖 Fırından gelen *Ekmek Adedini* giriniz:", reply_markup=ana_klavye(), parse_mode='Markdown')
         return
-    elif text == "🥪 Personel Yemeği":
+    elif "personel yemeği" in text.lower():
         update_db("UPDATE gunluk_durum SET beklenen_islem = 'personel' WHERE id = 1")
         await update.message.reply_text("🥪 Personel yemeği formatı: *[İsim] [Adet]*\n*(Örn: Ahmet 2)*", reply_markup=ana_klavye(), parse_mode='Markdown')
         return
-    elif text == "📊 Anlık Rapor":
+    elif "anlık rapor" in text.lower():
         await anlik_rapor_gonder(update)
         return
-    elif text == "🔴 Gün Sonu Kapat":
+    elif "gün sonu kapat" in text.lower():
         await gun_sonu_kapat(update)
         return
 
-    # 2. Hızlı Satış Komutları (Örn: s 5 veya p 3)
+    # Hızlı Satış Komutları (Örn: s 5 veya p 3)
     parcalar = text.lower().split()
     if len(parcalar) == 2 and parcalar[0] in ['s', 'p']:
         try:
@@ -163,7 +166,7 @@ async def mesaj_yoneticisi(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except ValueError:
             pass
 
-    # 3. Beklenen Veri Girişleri
+    # Beklenen Veri Girişleri
     if bekleyen == 'gun_basi':
         try:
             kilo = float(text.replace(',', '.'))
@@ -288,7 +291,7 @@ async def gun_sonu_kapat(update: Update):
     rapor_metni += f"Paket Satışı   : {p_adet} Adet ({p_tutar:,.0f} TL)\n"
     rapor_metni += f"-----------------------------------\n"
     rapor_metni += f"Toplam Porsiyon: {toplam_porsiyon} Adet\n"
-    rapor_metni‍ += f"GENEL TOPLAM   : {toplam_c:,.0f} TL\n"
+    rapor_metni += f"GENEL TOPLAM   : {toplam_c:,.0f} TL\n"
     rapor_metni += f"-----------------------------------\n"
     
     if v['personel']:
@@ -326,11 +329,12 @@ async def gun_sonu_kapat(update: Update):
 def main():
     keep_alive()
     
-    TOKEN = "8812573804:AAHkQqgBQUh68rdDP-M2RSmPEWBuHXBFd6c"
+    TOKEN = "8812573804:AAFtQu4X1zdaA4ownbdd2POdHbBH6uxZXq0"
     
     app = ApplicationBuilder().token(TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("gunsonu", gun_sonu_kapat_komut))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, mesaj_yoneticisi))
 
     print("Devran Döner Güvenli ve Kararlı Bot Çalışıyor...")
