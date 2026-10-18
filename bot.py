@@ -273,8 +273,12 @@ async def paket_gir(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return PAKET_GIR
 
 async def ekmek_gir(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text = update.message.text
+    if text == "⬅️ İptal":
+        await update.message.reply_text("İşlem iptal edildi.", reply_markup=ana_klavye())
+        return ISLEM_SECIMI
     try:
-        adet = int(update.message.text)
+        adet = int(text)
         increment_veri('ekmek_adet', adet)
         v = get_veri()
         await update.message.reply_text(
@@ -289,8 +293,12 @@ async def ekmek_gir(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return EKMEK_GIR
 
 async def aperatif_gir(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text = update.message.text
+    if text == "⬅️ İptal":
+        await update.message.reply_text("İşlem iptal edildi.", reply_markup=ana_klavye())
+        return ISLEM_SECIMI
     try:
-        parçalar = update.message.text.strip().split()
+        parçalar = text.strip().split()
         isim = " ".join(parçalar[:-1])
         adet = int(parçalar[-1])
         
