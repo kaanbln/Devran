@@ -332,4 +332,16 @@ async def gun_sonu_kapat(update: Update):
 def main():
     keep_alive()
     
-    TOKEN = "8812573804:AAHkQqgBQUh68rdDP-M2RSmPEWBuHXBFd6c
+    TOKEN = "8812573804:AAHkQqgBQUh68rdDP-M2RSmPEWBuHXBFd6c"
+    
+    app = ApplicationBuilder().token(TOKEN).build()
+
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("gunsonu", gun_sonu_kapat_komut))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, mesaj_yoneticisi))
+
+    print("Devran Döner Güvenli ve Hızlı Bot Çalışıyor...")
+    app.run_polling()
+
+if __name__ == '__main__':
+    main()
