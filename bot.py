@@ -14,7 +14,7 @@ from telegram.ext import (
     ConversationHandler
 )
 
-# Render Port Ayarı (Flask Sunucusu - 7/24 Aktif Tutmak İçin)
+# Render Port Ayarı (Flask Sunucusu - 7/24 Aktif)
 flask_app = Flask('')
 
 @flask_app.route('/')
@@ -148,16 +148,18 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     v = get_veri()
     if v['aktif_gun'] == 1:
         await update.message.reply_text(
-            f"⚡️ Günlük takip zaten aktif! ({v['tarih']})\nAşağıdaki menüden işlem yapabilirsiniz.",
-            reply_markup=ana_klavye()
+            f"⚡️ *Günlük takip zaten aktif!* ({v['tarih']})\nAşağıdaki menüden işlem yapabilirsiniz.",
+            reply_markup=ana_klavye(),
+            parse_mode='Markdown'
         )
         return ISLEM_SECIMI
 
     await update.message.reply_text(
-        "👋 **Devran Döner Yönetim Botuna Hoş Geldiniz!**\n\n"
-        "☀️ Yeni günü başlatmak için bugün takılan **Döner Kilosunu (kg)** giriniz:\n"
+        "👋 *Devran Döner Yönetim Botuna Hoş Geldiniz!*\n\n"
+        "☀️ Yeni günü başlatmak için bugün takılan *Döner Kilosunu (kg)* giriniz:\n"
         "*(Örn: 25.5 veya 30)*",
-        reply_markup=ReplyKeyboardRemove()
+        reply_markup=ReplyKeyboardRemove(),
+        parse_mode='Markdown'
     )
     return GUN_BASI_DONER
 
@@ -184,9 +186,10 @@ async def gun_basi_doner(update: Update, context: ContextTypes.DEFAULT_TYPE):
         conn.close()
 
         await update.message.reply_text(
-            f"✅ **Gün Başlatıldı!**\n📅 Tarih: {tarih_str}\n🥩 Takılan Döner: **{kilo} kg**\n\n"
+            f"✅ *Gün Başlatıldı!*\n📅 Tarih: {tarih_str}\n🥩 Takılan Döner: *{kilo} kg*\n\n"
             "İşlem yapmak için aşağıdaki menüyü kullanabilirsiniz.",
-            reply_markup=ana_klavye()
+            reply_markup=ana_klavye(),
+            parse_mode='Markdown'
         )
         return ISLEM_SECIMI
     except ValueError:
@@ -197,22 +200,23 @@ async def islem_secimi(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
 
     if text == "🍽 Salon Satışı":
-        await update.message.reply_text("🍽 Kaç adet **SALON** satışı yapıldı?", reply_markup=adet_klavyesi())
+        await update.message.reply_text("🍽 Kaç adet *SALON* satışı yapıldı?", reply_markup=adet_klavyesi(), parse_mode='Markdown')
         return SALON_GIR
 
     elif text == "📦 Paket Satışı":
-        await update.message.reply_text("📦 Kaç adet **PAKET** satışı yapıldı?", reply_markup=adet_klavyesi())
+        await update.message.reply_text("📦 Kaç adet *PAKET* satışı yapıldı?", reply_markup=adet_klavyesi(), parse_mode='Markdown')
         return PAKET_GIR
 
     elif text == "🥖 Fırın Ekmek Ekle":
-        await update.message.reply_text("🥖 Fırından gelen **Ekmek Adedini** giriniz:", reply_markup=ReplyKeyboardRemove())
+        await update.message.reply_text("🥖 Fırından gelen *Ekmek Adedini* giriniz:", reply_markup=ana_klavye(), parse_mode='Markdown')
         return EKMEK_GIR
 
     elif text == "🥪 Personel Yemeği":
         await update.message.reply_text(
-            "🥪 Personel yemeği giriş formatı: **[İsim] [Adet]**\n"
+            "🥪 Personel yemeği giriş formatı: *[İsim] [Adet]*\n"
             "*(Örn: Ahmet 2 veya Usta 1)*",
-            reply_markup=ReplyKeyboardRemove()
+            reply_markup=ana_klavye(),
+            parse_mode='Markdown'
         )
         return APERATIF_GIR
 
@@ -238,9 +242,10 @@ async def salon_gir(update: Update, context: ContextTypes.DEFAULT_TYPE):
         increment_veri('salon_adet', adet)
         v = get_veri()
         await update.message.reply_text(
-            f"✅ **{adet} Adet Salon Satışı Eklendi.**\n"
-            f"📊 Toplam Salon: **{v['salon_adet']} Adet** ({v['salon_adet'] * v['salon_fiyat']} TL)",
-            reply_markup=ana_klavye()
+            f"✅ *{adet} Adet Salon Satışı Eklendi.*\n"
+            f"📊 Toplam Salon: *{v['salon_adet']} Adet* ({v['salon_adet'] * v['salon_fiyat']:.0f} TL)",
+            reply_markup=ana_klavye(),
+            parse_mode='Markdown'
         )
         return ISLEM_SECIMI
     except ValueError:
@@ -257,9 +262,10 @@ async def paket_gir(update: Update, context: ContextTypes.DEFAULT_TYPE):
         increment_veri('paket_adet', adet)
         v = get_veri()
         await update.message.reply_text(
-            f"✅ **{adet} Adet Paket Satışı Eklendi.**\n"
-            f"📊 Toplam Paket: **{v['paket_adet']} Adet** ({v['paket_adet'] * v['paket_fiyat']} TL)",
-            reply_markup=ana_klavye()
+            f"✅ *{adet} Adet Paket Satışı Eklendi.*\n"
+            f"📊 Toplam Paket: *{v['paket_adet']} Adet* ({v['paket_adet'] * v['paket_fiyat']:.0f} TL)",
+            reply_markup=ana_klavye(),
+            parse_mode='Markdown'
         )
         return ISLEM_SECIMI
     except ValueError:
@@ -272,9 +278,10 @@ async def ekmek_gir(update: Update, context: ContextTypes.DEFAULT_TYPE):
         increment_veri('ekmek_adet', adet)
         v = get_veri()
         await update.message.reply_text(
-            f"✅ **{adet} Adet Ekmek Eklendi.**\n"
-            f"🥖 Toplam Fırın Ekmeği: **{v['ekmek_adet']} Adet**",
-            reply_markup=ana_klavye()
+            f"✅ *{adet} Adet Ekmek Eklendi.*\n"
+            f"🥖 Toplam Fırın Ekmeği: *{v['ekmek_adet']} Adet*",
+            reply_markup=ana_klavye(),
+            parse_mode='Markdown'
         )
         return ISLEM_SECIMI
     except ValueError:
@@ -290,12 +297,13 @@ async def aperatif_gir(update: Update, context: ContextTypes.DEFAULT_TYPE):
         add_personel_yemek(isim, adet)
         
         await update.message.reply_text(
-            f"✅ **{isim}** için **{adet} porsiyon** yemek kaydedildi.",
-            reply_markup=ana_klavye()
+            f"✅ *{isim}* için *{adet} porsiyon* yemek kaydedildi.",
+            reply_markup=ana_klavye(),
+            parse_mode='Markdown'
         )
         return ISLEM_SECIMI
     except Exception:
-        await update.message.reply_text("❌ Hatalı format! Örnek format: **Mehmet 2**", reply_markup=ana_klavye())
+        await update.message.reply_text("❌ Hatalı format! Örnek format: *Mehmet 2*", reply_markup=ana_klavye(), parse_mode='Markdown')
         return ISLEM_SECIMI
 
 async def hizli_satis(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -309,11 +317,11 @@ async def hizli_satis(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if kod == 's':
                 increment_veri('salon_adet', adet)
                 v = get_veri()
-                await update.message.reply_text(f"⚡️ Hızlı Eklendi: **{adet} Salon**\nToplam Salon: **{v['salon_adet']} Adet**")
+                await update.message.reply_text(f"⚡️ Hızlı Eklendi: *{adet} Salon*\nToplam Salon: *{v['salon_adet']} Adet*", parse_mode='Markdown')
             elif kod == 'p':
                 increment_veri('paket_adet', adet)
                 v = get_veri()
-                await update.message.reply_text(f"⚡️ Hızlı Eklendi: **{adet} Paket**\nToplam Paket: **{v['paket_adet']} Paket**")
+                await update.message.reply_text(f"⚡️ Hızlı Eklendi: *{adet} Paket*\nToplam Paket: *{v['paket_adet']} Paket*", parse_mode='Markdown')
         except ValueError:
             pass
 
@@ -327,18 +335,18 @@ async def anlik_rapor_gonder(update: Update, context: ContextTypes.DEFAULT_TYPE)
     toplam_porsiyon = s_adet + p_adet
     tarih = v.get('tarih', 'Bugün')
 
-    rapor = f"📊 **DEVRAN DÖNER - ANLIK RAPOR ({tarih})**\n"
+    rapor = f"📊 *DEVRAN DÖNER - ANLIK RAPOR ({tarih})*\n"
     rapor += f"-----------------------------------\n"
-    rapor += f"🥩 Takılan Döner: **{v['baslangic_kilo']} kg**\n"
-    rapor += f"🥖 Gelen Ekmek: **{v['ekmek_adet']} adet**\n\n"
-    rapor += f"🍽 Salon Satışı: **{s_adet} adet** ({s_tutar:,.0f} TL)\n"
-    rapor += f"📦 Paket Satışı: **{p_adet} adet** ({p_tutar:,.0f} TL)\n"
+    rapor += f"🥩 Takılan Döner: *{v['baslangic_kilo']} kg*\n"
+    rapor += f"🥖 Gelen Ekmek: *{v['ekmek_adet']} adet*\n\n"
+    rapor += f"🍽 Salon Satışı: *{s_adet} adet* ({s_tutar:,.0f} TL)\n"
+    rapor += f"📦 Paket Satışı: *{p_adet} adet* ({p_tutar:,.0f} TL)\n"
     rapor += f"-----------------------------------\n"
-    rapor += f"📈 Toplam Satılan: **{toplam_porsiyon} porsiyon**\n"
-    rapor += f"💰 **TOPLAM KASA: {toplam_c:,.0f} TL**\n"
+    rapor += f"📈 Toplam Satılan: *{toplam_porsiyon} porsiyon*\n"
+    rapor += f"💰 *TOPLAM KASA: {toplam_c:,.0f} TL*\n"
     
     if v['personel']:
-        rapor += f"\n🥪 **Personel Yemekleri:**\n"
+        rapor += f"\n🥪 *Personel Yemekleri:*\n"
         for p_isim, p_adet in v['personel'].items():
             rapor += f"  • {p_isim}: {p_adet} porsiyon\n"
 
@@ -384,8 +392,9 @@ async def gun_sonu_kapat(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_document(
         document=open(filename, "rb"),
         filename=filename,
-        caption=f"🏁 **{tarih} Gün Sonu Raporu Çıkarıldı ve Gün Kapatıldı!**\n💰 Toplam Kasa: **{toplam_c:,.0f} TL**",
-        reply_markup=ReplyKeyboardRemove()
+        caption=f"🏁 *{tarih} Gün Sonu Raporu Çıkarıldı ve Gün Kapatıldı!*\n💰 Toplam Kasa: *{toplam_c:,.0f} TL*",
+        reply_markup=ReplyKeyboardRemove(),
+        parse_mode='Markdown'
     )
 
     reset_db_day()
@@ -397,10 +406,8 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return ISLEM_SECIMI
 
 def main():
-    # Render için port sunucusunu arka planda çalıştır
     keep_alive()
     
-    # YENİ TOKEN ENTEGRE EDİLDİ
     TOKEN = "8898839173:AAG61BZ8R3RxCz3A29sDdCnYhSZwzETL5vE"
     
     app = ApplicationBuilder().token(TOKEN).build()
