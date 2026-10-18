@@ -1,6 +1,7 @@
 import logging
 import sqlite3
 import os
+import asyncio
 from datetime import datetime
 from threading import Thread
 from flask import Flask
@@ -13,7 +14,7 @@ from telegram.ext import (
     ContextTypes
 )
 
-# Render Port Ayarı (7/24 Aktif)
+# Render Port Ayarı (7/24 Aktif Web Server)
 flask_app = Flask('')
 
 @flask_app.route('/')
@@ -36,8 +37,13 @@ logging.basicConfig(
 DB_DOSYASI = "devran_doner.db"
 ARSIV_DOSYASI = "devran_doner_tum_arsiv.txt"
 
+def get_db_connection():
+    conn = sqlite3.connect(DB_DOSYASI, timeout=15)
+    conn.execute("PRAGMA journal_mode=WAL;")
+    return conn
+
 def init_db():
-    conn = sqlite3.connect(DB_DOSYASI)
+    conn = get_db_connection()
     c = conn.cursor()
     c.execute('''
         CREATE TABLE IF NOT EXISTS gunluk_durum (
@@ -65,7 +71,7 @@ def init_db():
     conn.close()
 
 def get_veri():
-    conn = sqlite3.connect(DB_DOSYASI)
+    conn = get_db_connection()
     conn.row_factory = sqlite3.Row
     c = conn.cursor()
     c.execute("SELECT * FROM gunluk_durum WHERE id = 1")
@@ -80,7 +86,7 @@ def get_veri():
     return row
 
 def update_db(query, params=()):
-    conn = sqlite3.connect(DB_DOSYASI)
+    conn = get_db_connection()
     c = conn.cursor()
     c.execute(query, params)
     conn.commit()
@@ -125,7 +131,7 @@ async def mesaj_yoneticisi(update: Update, context: ContextTypes.DEFAULT_TYPE):
     v = get_veri()
     bekleyen = v.get('beklenen_islem')
 
-    # Emojisiz veya esnek eşleşme için kontrol (Buton takılmalarına son)
+    # Esnek ve hızlı buton algılama
     if "salon satışı" in text.lower():
         update_db("UPDATE gunluk_durum SET beklenen_islem = 'salon' WHERE id = 1")
         await update.message.reply_text("🍽 Kaç adet *SALON* satışı yapıldı? (Sadece sayı girin)", reply_markup=ana_klavye(), parse_mode='Markdown')
@@ -149,7 +155,7 @@ async def mesaj_yoneticisi(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await gun_sonu_kapat(update)
         return
 
-    # Hızlı Satış Komutları (Örn: s 5 veya p 3)
+    # Hızlı Satış Komutları (s 5 / p 3)
     parcalar = text.lower().split()
     if len(parcalar) == 2 and parcalar[0] in ['s', 'p']:
         try:
@@ -166,7 +172,7 @@ async def mesaj_yoneticisi(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except ValueError:
             pass
 
-    # Beklenen Veri Girişleri
+    # Beklenen İşlem Girişleri
     if bekleyen == 'gun_basi':
         try:
             kilo = float(text.replace(',', '.'))
@@ -307,13 +313,14 @@ async def gun_sonu_kapat(update: Update):
     with open(ARSIV_DOSYASI, "a", encoding="utf-8") as f:
         f.write(rapor_metni + "\n\n")
 
-    await update.message.reply_document(
-        document=open(filename, "rb"),
-        filename=filename,
-        caption=f"🏁 *{tarih} Gün Sonu Raporu Çıkarıldı ve Gün Kapatıldı!*\n💰 Toplam Kasa: *{toplam_c:,.0f} TL*",
-        reply_markup=ReplyKeyboardRemove(),
-        parse_mode='Markdown'
-    )
+    with open(filename, "rb") as doc_file:
+        await update.message.reply_document(
+            document=doc_file,
+            filename=filename,
+            caption=f"🏁 *{tarih} Gün Sonu Raporu Çıkarıldı ve Gün Kapatıldı!*\n💰 Toplam Kasa: *{toplam_c:,.0f} TL*",
+            reply_markup=ana_klavye(),
+            parse_mode='Markdown'
+        )
 
     update_db('''
         UPDATE gunluk_durum SET 
@@ -329,7 +336,7 @@ async def gun_sonu_kapat(update: Update):
 def main():
     keep_alive()
     
-    TOKEN = "8812573804:AAFtQu4X1zdaA4ownbdd2POdHbBH6uxZXq0"
+    TOKEN = "8812573804:AAHkQqgBQUh68rdDP-M2RSmPEWBuHXBFd6c"
     
     app = ApplicationBuilder().token(TOKEN).build()
 
@@ -337,7 +344,7 @@ def main():
     app.add_handler(CommandHandler("gunsonu", gun_sonu_kapat_komut))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, mesaj_yoneticisi))
 
-    print("Devran Döner Güvenli ve Kararlı Bot Çalışıyor...")
+    print("Devran Döner Güvenli ve Hızlı Bot Çalışıyor...")
     app.run_polling()
 
 if __name__ == '__main__':
