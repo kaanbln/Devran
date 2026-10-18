@@ -10,11 +10,10 @@ from telegram.ext import (
     CommandHandler,
     MessageHandler,
     filters,
-    ContextTypes,
-    ConversationHandler
+    ContextTypes
 )
 
-# Render Port Ayarı (Flask Sunucusu - 7/24 Aktif)
+# Render Port Ayarı (7/24 Aktif)
 flask_app = Flask('')
 
 @flask_app.route('/')
@@ -29,18 +28,13 @@ def keep_alive():
     t.daemon = True
     t.start()
 
-# Logging ayarları
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO
 )
 
-GUN_BASI_DONER, ISLEM_SECIMI, EKMEK_GIR, SALON_GIR, PAKET_GIR, APERATIF_GIR = range(6)
-
 DB_DOSYASI = "devran_doner.db"
 ARSIV_DOSYASI = "devran_doner_tum_arsiv.txt"
-
-# ------------------- VERİTABANI İŞLEMLERİ -------------------
 
 def init_db():
     conn = sqlite3.connect(DB_DOSYASI)
@@ -55,7 +49,8 @@ def init_db():
             salon_fiyat REAL DEFAULT 120,
             paket_fiyat REAL DEFAULT 140,
             tarih TEXT,
-            aktif_gun INTEGER DEFAULT 0
+            aktif_gun INTEGER DEFAULT 0,
+            beklenen_islem TEXT DEFAULT NULL
         )
     ''')
     c.execute('''
@@ -65,7 +60,7 @@ def init_db():
             porsiyon INTEGER
         )
     ''')
-    c.execute("INSERT OR IGNORE INTO gunluk_durum (id) VALUES (1)")
+    c.execute("INSERT OR IGNORE INTO gunluk_durum (id, beklenen_islem) VALUES (1, NULL)")
     conn.commit()
     conn.close()
 
@@ -84,40 +79,14 @@ def get_veri():
     conn.close()
     return row
 
-def increment_veri(field, amount):
+def update_db(query, params=()):
     conn = sqlite3.connect(DB_DOSYASI)
     c = conn.cursor()
-    c.execute(f"UPDATE gunluk_durum SET {field} = {field} + ? WHERE id = 1", (amount,))
-    conn.commit()
-    conn.close()
-
-def add_personel_yemek(isim, porsiyon):
-    conn = sqlite3.connect(DB_DOSYASI)
-    c = conn.cursor()
-    c.execute("INSERT INTO personel_yemek (isim, porsiyon) VALUES (?, ?)", (isim, porsiyon))
-    conn.commit()
-    conn.close()
-
-def reset_db_day():
-    conn = sqlite3.connect(DB_DOSYASI)
-    c = conn.cursor()
-    c.execute('''
-        UPDATE gunluk_durum SET 
-            baslangic_kilo = 0,
-            ekmek_adet = 0,
-            salon_adet = 0,
-            paket_adet = 0,
-            tarih = '',
-            aktif_gun = 0
-        WHERE id = 1
-    ''')
-    c.execute("DELETE FROM personel_yemek")
+    c.execute(query, params)
     conn.commit()
     conn.close()
 
 init_db()
-
-# ------------------- KLAVYELER -------------------
 
 def ana_klavye():
     keyboard = [
@@ -127,49 +96,17 @@ def ana_klavye():
     ]
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
-def adet_klavyesi():
-    keyboard = [
-        ["1", "2", "3", "4", "5"],
-        ["6", "7", "8", "9", "10"],
-        ["15", "20", "⬅️ İptal"]
-    ]
-    return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-
-# ------------------- ORTAK MENÜ YÖNLENDİRİCİSİ -------------------
-async def ortak_islem_kontrol(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = update.message.text
-
-    if text == "🍽 Salon Satışı":
-        await update.message.reply_text("🍽 Kaç adet *SALON* satışı yapıldı?", reply_markup=adet_klavyesi(), parse_mode='Markdown')
-        return SALON_GIR
-    elif text == "📦 Paket Satışı":
-        await update.message.reply_text("📦 Kaç adet *PAKET* satışı yapıldı?", reply_markup=adet_klavyesi(), parse_mode='Markdown')
-        return PAKET_GIR
-    elif text == "🥖 Fırın Ekmek Ekle":
-        await update.message.reply_text("🥖 Fırından gelen *Ekmek Adedini* giriniz:", reply_markup=ana_klavye(), parse_mode='Markdown')
-        return EKMEK_GIR
-    elif text == "🥪 Personel Yemeği":
-        await update.message.reply_text("🥪 Personel yemeği giriş formatı: *[İsim] [Adet]*\n*(Örn: Ahmet 2)*", reply_markup=ana_klavye(), parse_mode='Markdown')
-        return APERATIF_GIR
-    elif text == "📊 Anlık Rapor":
-        await anlik_rapor_gonder(update, context)
-        return ISLEM_SECIMI
-    elif text == "🔴 Gün Sonu Kapat":
-        await gun_sonu_kapat(update, context)
-        return ConversationHandler.END
-    return None
-
-# ------------------- BOT FONKSİYONLARI -------------------
-
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     v = get_veri()
+    update_db("UPDATE gunluk_durum SET beklenen_islem = NULL WHERE id = 1")
+    
     if v['aktif_gun'] == 1:
         await update.message.reply_text(
             f"⚡️ *Günlük takip zaten aktif!* ({v['tarih']})\nAşağıdaki menüden işlem yapabilirsiniz.",
             reply_markup=ana_klavye(),
             parse_mode='Markdown'
         )
-        return ISLEM_SECIMI
+        return
 
     await update.message.reply_text(
         "👋 *Devran Döner Yönetim Botuna Hoş Geldiniz!*\n\n"
@@ -178,171 +115,133 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=ReplyKeyboardRemove(),
         parse_mode='Markdown'
     )
-    return GUN_BASI_DONER
+    update_db("UPDATE gunluk_durum SET beklenen_islem = 'gun_basi' WHERE id = 1")
 
-async def gun_basi_doner(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = update.message.text.replace(',', '.')
-    try:
-        kilo = float(text)
-        tarih_str = datetime.now().strftime("%d.%m.%Y")
-        
-        conn = sqlite3.connect(DB_DOSYASI)
-        c = conn.cursor()
-        c.execute('''
-            UPDATE gunluk_durum SET 
-                baslangic_kilo = ?,
-                ekmek_adet = 0,
-                salon_adet = 0,
-                paket_adet = 0,
-                tarih = ?,
-                aktif_gun = 1
-            WHERE id = 1
-        ''', (kilo, tarih_str))
-        c.execute("DELETE FROM personel_yemek")
-        conn.commit()
-        conn.close()
+async def mesaj_yoneticisi(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text = update.message.text.strip()
+    v = get_veri()
+    bekleyen = v.get('beklenen_islem')
 
-        await update.message.reply_text(
-            f"✅ *Gün Başlatıldı!*\n📅 Tarih: {tarih_str}\n🥩 Takılan Döner: *{kilo} kg*\n\n"
-            "İşlem yapmak için aşağıdaki menüyü kullanabilirsiniz.",
-            reply_markup=ana_klavye(),
-            parse_mode='Markdown'
-        )
-        return ISLEM_SECIMI
-    except ValueError:
-        await update.message.reply_text("❌ Lütfen geçerli bir sayı giriniz (Örn: 25 veya 25.5):")
-        return GUN_BASI_DONER
+    # 1. Menü Komutları / Butonlar (Her an her yerden basılabilir, kilitlenmez)
+    if text == "🍽 Salon Satışı":
+        update_db("UPDATE gunluk_durum SET beklenen_islem = 'salon' WHERE id = 1")
+        await update.message.reply_text("🍽 Kaç adet *SALON* satışı yapıldı? (Sadece sayı girin)", reply_markup=ana_klavye(), parse_mode='Markdown')
+        return
+    elif text == "📦 Paket Satışı":
+        update_db("UPDATE gunluk_durum SET beklenen_islem = 'paket' WHERE id = 1")
+        await update.message.reply_text("📦 Kaç adet *PAKET* satışı yapıldı? (Sadece sayı girin)", reply_markup=ana_klavye(), parse_mode='Markdown')
+        return
+    elif text == "🥖 Fırın Ekmek Ekle":
+        update_db("UPDATE gunluk_durum SET beklenen_islem = 'ekmek' WHERE id = 1")
+        await update.message.reply_text("🥖 Fırından gelen *Ekmek Adedini* giriniz:", reply_markup=ana_klavye(), parse_mode='Markdown')
+        return
+    elif text == "🥪 Personel Yemeği":
+        update_db("UPDATE gunluk_durum SET beklenen_islem = 'personel' WHERE id = 1")
+        await update.message.reply_text("🥪 Personel yemeği formatı: *[İsim] [Adet]*\n*(Örn: Ahmet 2)*", reply_markup=ana_klavye(), parse_mode='Markdown')
+        return
+    elif text == "📊 Anlık Rapor":
+        await anlik_rapor_gonder(update)
+        return
+    elif text == "🔴 Gün Sonu Kapat":
+        await gun_sonu_kapat(update)
+        return
 
-async def islem_secimi(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    yeni_durum = await ortak_islem_kontrol(update, context)
-    if yeni_durum is not None:
-        return yeni_durum
-
-    await update.message.reply_text("Lütfen menüdeki butonları kullanın veya 's 2', 'p 3' gibi hızlı komut girin.", reply_markup=ana_klavye())
-    return ISLEM_SECIMI
-
-async def salon_gir(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = update.message.text
-    if text == "⬅️ İptal":
-        await update.message.reply_text("İşlem iptal edildi.", reply_markup=ana_klavye())
-        return ISLEM_SECIMI
-    
-    yeni_durum = await ortak_islem_kontrol(update, context)
-    if yeni_durum is not None:
-        return yeni_durum
-
-    try:
-        adet = int(text)
-        increment_veri('salon_adet', adet)
-        v = get_veri()
-        await update.message.reply_text(
-            f"✅ *{adet} Adet Salon Satışı Eklendi.*\n"
-            f"📊 Toplam Salon: *{v['salon_adet']} Adet* ({v['salon_adet'] * v['salon_fiyat']:.0f} TL)",
-            reply_markup=ana_klavye(),
-            parse_mode='Markdown'
-        )
-        return ISLEM_SECIMI
-    except ValueError:
-        await update.message.reply_text("❌ Lütfen geçerli bir adet giriniz veya İptal'e basınız:")
-        return SALON_GIR
-
-async def paket_gir(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = update.message.text
-    if text == "⬅️ İptal":
-        await update.message.reply_text("İşlem iptal edildi.", reply_markup=ana_klavye())
-        return ISLEM_SECIMI
-    
-    yeni_durum = await ortak_islem_kontrol(update, context)
-    if yeni_durum is not None:
-        return yeni_durum
-
-    try:
-        adet = int(text)
-        increment_veri('paket_adet', adet)
-        v = get_veri()
-        await update.message.reply_text(
-            f"✅ *{adet} Adet Paket Satışı Eklendi.*\n"
-            f"📊 Toplam Paket: *{v['paket_adet']} Adet* ({v['paket_adet'] * v['paket_fiyat']:.0f} TL)",
-            reply_markup=ana_klavye(),
-            parse_mode='Markdown'
-        )
-        return ISLEM_SECIMI
-    except ValueError:
-        await update.message.reply_text("❌ Lütfen geçerli bir adet giriniz veya İptal'e basınız:")
-        return PAKET_GIR
-
-async def ekmek_gir(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = update.message.text
-    if text == "⬅️ İptal":
-        await update.message.reply_text("İşlem iptal edildi.", reply_markup=ana_klavye())
-        return ISLEM_SECIMI
-    
-    yeni_durum = await ortak_islem_kontrol(update, context)
-    if yeni_durum is not None:
-        return yeni_durum
-
-    try:
-        adet = int(text)
-        increment_veri('ekmek_adet', adet)
-        v = get_veri()
-        await update.message.reply_text(
-            f"✅ *{adet} Adet Ekmek Eklendi.*\n"
-            f"🥖 Toplam Fırın Ekmeği: *{v['ekmek_adet']} Adet*",
-            reply_markup=ana_klavye(),
-            parse_mode='Markdown'
-        )
-        return ISLEM_SECIMI
-    except ValueError:
-        await update.message.reply_text("❌ Lütfen geçerli bir sayı giriniz:")
-        return EKMEK_GIR
-
-async def aperatif_gir(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = update.message.text
-    if text == "⬅️ İptal":
-        await update.message.reply_text("İşlem iptal edildi.", reply_markup=ana_klavye())
-        return ISLEM_SECIMI
-    
-    yeni_durum = await ortak_islem_kontrol(update, context)
-    if yeni_durum is not None:
-        return yeni_durum
-
-    try:
-        parçalar = text.strip().split()
-        isim = " ".join(parçalar[:-1])
-        adet = int(parçalar[-1])
-        
-        add_personel_yemek(isim, adet)
-        
-        await update.message.reply_text(
-            f"✅ *{isim}* için *{adet} porsiyon* yemek kaydedildi.",
-            reply_markup=ana_klavye(),
-            parse_mode='Markdown'
-        )
-        return ISLEM_SECIMI
-    except Exception:
-        await update.message.reply_text("❌ Hatalı format! Örnek format: *Mehmet 2*", reply_markup=ana_klavye(), parse_mode='Markdown')
-        return ISLEM_SECIMI
-
-async def hizli_satis(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = update.message.text.strip().lower()
-    parcalar = text.split()
-    
-    if len(parcalar) == 2:
-        kod = parcalar[0]
+    # 2. Hızlı Satış Komutları (Örn: s 2 veya p 3)
+    parcalar = text.lower().split()
+    if len(parcalar) == 2 and parcalar[0] in ['s', 'p']:
         try:
             adet = int(parcalar[1])
-            if kod == 's':
-                increment_veri('salon_adet', adet)
-                v = get_veri()
-                await update.message.reply_text(f"⚡️ Hızlı Eklendi: *{adet} Salon*\nToplam Salon: *{v['salon_adet']} Adet*", parse_mode='Markdown')
-            elif kod == 'p':
-                increment_veri('paket_adet', adet)
-                v = get_veri()
-                await update.message.reply_text(f"⚡️ Hızlı Eklendi: *{adet} Paket*\nToplam Paket: *{v['paket_adet']} Paket*", parse_mode='Markdown')
+            if parcalar[0] == 's':
+                update_db("UPDATE gunluk_durum SET salon_adet = salon_adet + ? WHERE id = 1", (adet,))
+                guncel = get_veri()
+                await update.message.reply_text(f"⚡️ Hızlı Eklendi: *{adet} Salon*\nToplam Salon: *{guncel['salon_adet']} Adet*", reply_markup=ana_klavye(), parse_mode='Markdown')
+            elif parcalar[0] == 'p':
+                update_db("UPDATE gunluk_durum SET paket_adet = paket_adet + ? WHERE id = 1", (adet,))
+                guncel = get_veri()
+                await update.message.reply_text(f"⚡️ Hızlı Eklendi: *{adet} Paket*\nToplam Paket: *{guncel['paket_adet']} Adet*", reply_markup=ana_klavye(), parse_mode='Markdown')
+            return
         except ValueError:
             pass
 
-async def anlik_rapor_gonder(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # 3. Beklenen İşlem Verisi Girişleri
+    if bekleyen == 'gun_basi':
+        try:
+            kilo = float(text.replace(',', '.'))
+            tarih_str = datetime.now().strftime("%d.%m.%Y")
+            update_db('''
+                UPDATE gunluk_durum SET 
+                    baslangic_kilo = ?, ekmek_adet = 0, salon_adet = 0, 
+                    paket_adet = 0, tarih = ?, aktif_gun = 1, beklenen_islem = NULL 
+                WHERE id = 1
+            ''', (kilo, tarih_str))
+            update_db("DELETE FROM personel_yemek")
+            await update.message.reply_text(
+                f"✅ *Gün Başlatıldı!*\n📅 Tarih: {tarih_str}\n🥩 Takılan Döner: *{kilo} kg*\n\n"
+                "İşlem yapmak için aşağıdaki menüyü kullanabilirsiniz.",
+                reply_markup=ana_klavye(), parse_mode='Markdown'
+            )
+        except ValueError:
+            await update.message.reply_text("❌ Lütfen geçerli bir sayı giriniz (Örn: 25 veya 25.5):")
+        return
+
+    elif bekleyen == 'salon':
+        try:
+            adet = int(text)
+            update_db("UPDATE gunluk_durum SET salon_adet = salon_adet + ?, beklenen_islem = NULL WHERE id = 1", (adet,))
+            guncel = get_veri()
+            await update.message.reply_text(
+                f"✅ *{adet} Adet Salon Satışı Eklendi.*\n📊 Toplam Salon: *{guncel['salon_adet']} Adet* ({guncel['salon_adet'] * guncel['salon_fiyat']:.0f} TL)",
+                reply_markup=ana_klavye(), parse_mode='Markdown'
+            )
+        except ValueError:
+            await update.message.reply_text("❌ Lütfen geçerli bir sayı giriniz:")
+        return
+
+    elif bekleyen == 'paket':
+        try:
+            adet = int(text)
+            update_db("UPDATE gunluk_durum SET paket_adet = paket_adet + ?, beklenen_islem = NULL WHERE id = 1", (adet,))
+            guncel = get_veri()
+            await update.message.reply_text(
+                f"✅ *{adet} Adet Paket Satışı Eklendi.*\n📊 Toplam Paket: *{guncel['paket_adet']} Adet* ({guncel['paket_adet'] * guncel['paket_fiyat']:.0f} TL)",
+                reply_markup=ana_klavye(), parse_mode='Markdown'
+            )
+        except ValueError:
+            await update.message.reply_text("❌ Lütfen geçerli bir sayı giriniz:")
+        return
+
+    elif bekleyen == 'ekmek':
+        try:
+            adet = int(text)
+            update_db("UPDATE gunluk_durum SET ekmek_adet = ekmek_adet + ?, beklenen_islem = NULL WHERE id = 1", (adet,))
+            guncel = get_veri()
+            await update.message.reply_text(
+                f"✅ *{adet} Adet Ekmek Eklendi.*\n🥖 Toplam Fırın Ekmeği: *{guncel['ekmek_adet']} Adet*",
+                reply_markup=ana_klavye(), parse_mode='Markdown'
+            )
+        except ValueError:
+            await update.message.reply_text("❌ Lütfen geçerli bir sayı giriniz:")
+        return
+
+    elif bekleyen == 'personel':
+        try:
+            p = text.strip().split()
+            isim = " ".join(p[:-1])
+            adet = int(p[-1])
+            update_db("INSERT INTO personel_yemek (isim, porsiyon) VALUES (?, ?)", (isim, adet))
+            update_db("UPDATE gunluk_durum SET beklenen_islem = NULL WHERE id = 1")
+            await update.message.reply_text(
+                f"✅ *{isim}* için *{adet} porsiyon* yemek kaydedildi.",
+                reply_markup=ana_klavye(), parse_mode='Markdown'
+            )
+        except Exception:
+            await update.message.reply_text("❌ Hatalı format! Örnek format: *Ahmet 2*", reply_markup=ana_klavye(), parse_mode='Markdown')
+        return
+
+    # Eğer boştaysa ve anlamsız bir şey yazıldıysa
+    await update.message.reply_text("Lütfen aşağıdaki menüden bir işlem seçin:", reply_markup=ana_klavye())
+
+async def anlik_rapor_gonder(update: Update):
     v = get_veri()
     s_adet = v["salon_adet"]
     p_adet = v["paket_adet"]
@@ -369,7 +268,7 @@ async def anlik_rapor_gonder(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     await update.message.reply_text(rapor, reply_markup=ana_klavye(), parse_mode='Markdown')
 
-async def gun_sonu_kapat(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def gun_sonu_kapat(update: Update):
     v = get_veri()
     s_adet = v["salon_adet"]
     p_adet = v["paket_adet"]
@@ -414,13 +313,16 @@ async def gun_sonu_kapat(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode='Markdown'
     )
 
-    reset_db_day()
+    update_db('''
+        UPDATE gunluk_durum SET 
+            baslangic_kilo = 0, ekmek_adet = 0, salon_adet = 0, 
+            paket_adet = 0, tarih = '', aktif_gun = 0, beklenen_islem = NULL 
+        WHERE id = 1
+    ''')
+    update_db("DELETE FROM personel_yemek")
+    
     if os.path.exists(filename):
         os.remove(filename)
-
-async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("İşlem iptal edildi.", reply_markup=ana_klavye())
-    return ISLEM_SECIMI
 
 def main():
     keep_alive()
@@ -429,25 +331,10 @@ def main():
     
     app = ApplicationBuilder().token(TOKEN).build()
 
-    conv_handler = ConversationHandler(
-        entry_points=[CommandHandler('start', start)],
-        states={
-            GUN_BASI_DONER: [MessageHandler(filters.TEXT & ~filters.COMMAND, gun_basi_doner)],
-            ISLEM_SECIMI: [
-                MessageHandler(filters.Regex(r'^(s\s+\d+|p\s+\d+)$'), hizli_satis),
-                MessageHandler(filters.TEXT & ~filters.COMMAND, islem_secimi)
-            ],
-            SALON_GIR: [MessageHandler(filters.TEXT & ~filters.COMMAND, salon_gir)],
-            PAKET_GIR: [MessageHandler(filters.TEXT & ~filters.COMMAND, paket_gir)],
-            EKMEK_GIR: [MessageHandler(filters.TEXT & ~filters.COMMAND, ekmek_gir)],
-            APERATIF_GIR: [MessageHandler(filters.TEXT & ~filters.COMMAND, aperatif_gir)],
-        },
-        fallbacks=[CommandHandler('cancel', cancel)]
-    )
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, mesaj_yoneticisi))
 
-    app.add_handler(conv_handler)
-
-    print("Devran Döner SQLite Destekli VIP Bot Çalışıyor...")
+    print("Devran Döner Saf ve Kilitlenmeyen Bot Çalışıyor...")
     app.run_polling()
 
 if __name__ == '__main__':
