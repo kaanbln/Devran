@@ -122,7 +122,7 @@ async def mesaj_yoneticisi(update: Update, context: ContextTypes.DEFAULT_TYPE):
     v = get_veri()
     bekleyen = v.get('beklenen_islem')
 
-    # 1. Menü Komutları / Butonlar (Her an her yerden basılabilir, kilitlenmez)
+    # 1. Menü Butonları (Her an basılabilir, anında işlem değiştirir)
     if text == "🍽 Salon Satışı":
         update_db("UPDATE gunluk_durum SET beklenen_islem = 'salon' WHERE id = 1")
         await update.message.reply_text("🍽 Kaç adet *SALON* satışı yapıldı? (Sadece sayı girin)", reply_markup=ana_klavye(), parse_mode='Markdown')
@@ -146,7 +146,7 @@ async def mesaj_yoneticisi(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await gun_sonu_kapat(update)
         return
 
-    # 2. Hızlı Satış Komutları (Örn: s 2 veya p 3)
+    # 2. Hızlı Satış Komutları (Örn: s 5 veya p 3)
     parcalar = text.lower().split()
     if len(parcalar) == 2 and parcalar[0] in ['s', 'p']:
         try:
@@ -163,7 +163,7 @@ async def mesaj_yoneticisi(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except ValueError:
             pass
 
-    # 3. Beklenen İşlem Verisi Girişleri
+    # 3. Beklenen Veri Girişleri
     if bekleyen == 'gun_basi':
         try:
             kilo = float(text.replace(',', '.'))
@@ -238,7 +238,6 @@ async def mesaj_yoneticisi(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("❌ Hatalı format! Örnek format: *Ahmet 2*", reply_markup=ana_klavye(), parse_mode='Markdown')
         return
 
-    # Eğer boştaysa ve anlamsız bir şey yazıldıysa
     await update.message.reply_text("Lütfen aşağıdaki menüden bir işlem seçin:", reply_markup=ana_klavye())
 
 async def anlik_rapor_gonder(update: Update):
@@ -289,7 +288,7 @@ async def gun_sonu_kapat(update: Update):
     rapor_metni += f"Paket Satışı   : {p_adet} Adet ({p_tutar:,.0f} TL)\n"
     rapor_metni += f"-----------------------------------\n"
     rapor_metni += f"Toplam Porsiyon: {toplam_porsiyon} Adet\n"
-    rapor_metni += f"GENEL TOPLAM   : {toplam_c:,.0f} TL\n"
+    rapor_metni‍ += f"GENEL TOPLAM   : {toplam_c:,.0f} TL\n"
     rapor_metni += f"-----------------------------------\n"
     
     if v['personel']:
@@ -327,14 +326,14 @@ async def gun_sonu_kapat(update: Update):
 def main():
     keep_alive()
     
-    TOKEN = "8812573804:AAHiRSD09llbvlAuunVYB2Q0s_kN-Z3tcyc"
+    TOKEN = "8812573804:AAHkQqgBQUh68rdDP-M2RSmPEWBuHXBFd6c"
     
     app = ApplicationBuilder().token(TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, mesaj_yoneticisi))
 
-    print("Devran Döner Saf ve Kilitlenmeyen Bot Çalışıyor...")
+    print("Devran Döner Güvenli ve Kararlı Bot Çalışıyor...")
     app.run_polling()
 
 if __name__ == '__main__':
