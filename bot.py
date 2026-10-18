@@ -84,13 +84,6 @@ def get_veri():
     conn.close()
     return row
 
-def update_veri(field, value):
-    conn = sqlite3.connect(DB_DOSYASI)
-    c = conn.cursor()
-    c.execute(f"UPDATE gunluk_durum SET {field} = ? WHERE id = 1", (value,))
-    conn.commit()
-    conn.close()
-
 def increment_veri(field, amount):
     conn = sqlite3.connect(DB_DOSYASI)
     c = conn.cursor()
@@ -141,6 +134,30 @@ def adet_klavyesi():
         ["15", "20", "⬅️ İptal"]
     ]
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+
+# ------------------- ORTAK MENÜ YÖNLENDİRİCİSİ -------------------
+async def ortak_islem_kontrol(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text = update.message.text
+
+    if text == "🍽 Salon Satışı":
+        await update.message.reply_text("🍽 Kaç adet *SALON* satışı yapıldı?", reply_markup=adet_klavyesi(), parse_mode='Markdown')
+        return SALON_GIR
+    elif text == "📦 Paket Satışı":
+        await update.message.reply_text("📦 Kaç adet *PAKET* satışı yapıldı?", reply_markup=adet_klavyesi(), parse_mode='Markdown')
+        return PAKET_GIR
+    elif text == "🥖 Fırın Ekmek Ekle":
+        await update.message.reply_text("🥖 Fırından gelen *Ekmek Adedini* giriniz:", reply_markup=ana_klavye(), parse_mode='Markdown')
+        return EKMEK_GIR
+    elif text == "🥪 Personel Yemeği":
+        await update.message.reply_text("🥪 Personel yemeği giriş formatı: *[İsim] [Adet]*\n*(Örn: Ahmet 2)*", reply_markup=ana_klavye(), parse_mode='Markdown')
+        return APERATIF_GIR
+    elif text == "📊 Anlık Rapor":
+        await anlik_rapor_gonder(update, context)
+        return ISLEM_SECIMI
+    elif text == "🔴 Gün Sonu Kapat":
+        await gun_sonu_kapat(update, context)
+        return ConversationHandler.END
+    return None
 
 # ------------------- BOT FONKSİYONLARI -------------------
 
@@ -197,48 +214,23 @@ async def gun_basi_doner(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return GUN_BASI_DONER
 
 async def islem_secimi(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = update.message.text
+    yeni_durum = await ortak_islem_kontrol(update, context)
+    if yeni_durum is not None:
+        return yeni_durum
 
-    if text == "🍽 Salon Satışı":
-        await update.message.reply_text("🍽 Kaç adet *SALON* satışı yapıldı?", reply_markup=adet_klavyesi(), parse_mode='Markdown')
-        return SALON_GIR
-
-    elif text == "📦 Paket Satışı":
-        await update.message.reply_text("📦 Kaç adet *PAKET* satışı yapıldı?", reply_markup=adet_klavyesi(), parse_mode='Markdown')
-        return PAKET_GIR
-
-    elif text == "🥖 Fırın Ekmek Ekle":
-        await update.message.reply_text("🥖 Fırından gelen *Ekmek Adedini* giriniz:", reply_markup=ana_klavye(), parse_mode='Markdown')
-        return EKMEK_GIR
-
-    elif text == "🥪 Personel Yemeği":
-        await update.message.reply_text(
-            "🥪 Personel yemeği giriş formatı: *[İsim] [Adet]*\n"
-            "*(Örn: Ahmet 2 veya Usta 1)*",
-            reply_markup=ana_klavye(),
-            parse_mode='Markdown'
-        )
-        return APERATIF_GIR
-
-    elif text == "📊 Anlık Rapor":
-        await anlik_rapor_gonder(update, context)
-        return ISLEM_SECIMI
-
-    elif text == "🔴 Gün Sonu Kapat":
-        await gun_sonu_kapat(update, context)
-        return ConversationHandler.END
-
-    else:
-        await update.message.reply_text("Lütfen menüdeki butonları kullanın veya 's 2', 'p 3' gibi hızlı komut girin.", reply_markup=ana_klavye())
-        return ISLEM_SECIMI
+    await update.message.reply_text("Lütfen menüdeki butonları kullanın veya 's 2', 'p 3' gibi hızlı komut girin.", reply_markup=ana_klavye())
+    return ISLEM_SECIMI
 
 async def salon_gir(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
     if text == "⬅️ İptal":
         await update.message.reply_text("İşlem iptal edildi.", reply_markup=ana_klavye())
         return ISLEM_SECIMI
-    if text in ["🍽 Salon Satışı", "📦 Paket Satışı", "🥖 Fırın Ekmek Ekle", "🥪 Personel Yemeği", "📊 Anlık Rapor", "🔴 Gün Sonu Kapat"]:
-        return await islem_secimi(update, context)
+    
+    yeni_durum = await ortak_islem_kontrol(update, context)
+    if yeni_durum is not None:
+        return yeni_durum
+
     try:
         adet = int(text)
         increment_veri('salon_adet', adet)
@@ -259,8 +251,11 @@ async def paket_gir(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if text == "⬅️ İptal":
         await update.message.reply_text("İşlem iptal edildi.", reply_markup=ana_klavye())
         return ISLEM_SECIMI
-    if text in ["🍽 Salon Satışı", "📦 Paket Satışı", "🥖 Fırın Ekmek Ekle", "🥪 Personel Yemeği", "📊 Anlık Rapor", "🔴 Gün Sonu Kapat"]:
-        return await islem_secimi(update, context)
+    
+    yeni_durum = await ortak_islem_kontrol(update, context)
+    if yeni_durum is not None:
+        return yeni_durum
+
     try:
         adet = int(text)
         increment_veri('paket_adet', adet)
@@ -281,8 +276,11 @@ async def ekmek_gir(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if text == "⬅️ İptal":
         await update.message.reply_text("İşlem iptal edildi.", reply_markup=ana_klavye())
         return ISLEM_SECIMI
-    if text in ["🍽 Salon Satışı", "📦 Paket Satışı", "🥖 Fırın Ekmek Ekle", "🥪 Personel Yemeği", "📊 Anlık Rapor", "🔴 Gün Sonu Kapat"]:
-        return await islem_secimi(update, context)
+    
+    yeni_durum = await ortak_islem_kontrol(update, context)
+    if yeni_durum is not None:
+        return yeni_durum
+
     try:
         adet = int(text)
         increment_veri('ekmek_adet', adet)
@@ -303,8 +301,11 @@ async def aperatif_gir(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if text == "⬅️ İptal":
         await update.message.reply_text("İşlem iptal edildi.", reply_markup=ana_klavye())
         return ISLEM_SECIMI
-    if text in ["🍽 Salon Satışı", "📦 Paket Satışı", "🥖 Fırın Ekmek Ekle", "🥪 Personel Yemeği", "📊 Anlık Rapor", "🔴 Gün Sonu Kapat"]:
-        return await islem_secimi(update, context)
+    
+    yeni_durum = await ortak_islem_kontrol(update, context)
+    if yeni_durum is not None:
+        return yeni_durum
+
     try:
         parçalar = text.strip().split()
         isim = " ".join(parçalar[:-1])
