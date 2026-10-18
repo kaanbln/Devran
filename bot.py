@@ -1,7 +1,6 @@
 import logging
 import sqlite3
 import os
-import asyncio
 from datetime import datetime
 from threading import Thread
 from flask import Flask
@@ -131,7 +130,6 @@ async def mesaj_yoneticisi(update: Update, context: ContextTypes.DEFAULT_TYPE):
     v = get_veri()
     bekleyen = v.get('beklenen_islem')
 
-    # Esnek ve hızlı buton algılama
     if "salon satışı" in text.lower():
         update_db("UPDATE gunluk_durum SET beklenen_islem = 'salon' WHERE id = 1")
         await update.message.reply_text("🍽 Kaç adet *SALON* satışı yapıldı? (Sadece sayı girin)", reply_markup=ana_klavye(), parse_mode='Markdown')
@@ -155,7 +153,6 @@ async def mesaj_yoneticisi(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await gun_sonu_kapat(update)
         return
 
-    # Hızlı Satış Komutları (s 5 / p 3)
     parcalar = text.lower().split()
     if len(parcalar) == 2 and parcalar[0] in ['s', 'p']:
         try:
@@ -172,7 +169,6 @@ async def mesaj_yoneticisi(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except ValueError:
             pass
 
-    # Beklenen İşlem Girişleri
     if bekleyen == 'gun_basi':
         try:
             kilo = float(text.replace(',', '.'))
@@ -286,9 +282,9 @@ async def gun_sonu_kapat(update: Update):
     toplam_porsiyon = s_adet + p_adet
     tarih = v.get('tarih', datetime.now().strftime("%d.%m.%Y"))
 
-    rapor_metni = f"===================================\n"
+    rapor_metni = f"==================================-\n"
     rapor_metni += f"      DEVRAN DÖNER GÜN SONU RAPORU\n"
-    rapor_metni += f"===================================\n"
+    rapor_metni += f"==================================-\n"
     rapor_metni += f"Tarih          : {tarih}\n"
     rapor_metni += f"Takılan Döner  : {v['baslangic_kilo']} kg\n"
     rapor_metni += f"Fırın Ekmeği   : {v['ekmek_adet']} adet\n"
@@ -304,7 +300,7 @@ async def gun_sonu_kapat(update: Update):
         rapor_metni += f"Personel Yemekleri:\n"
         for p_isim, p_adet in v['personel'].items():
             rapor_metni += f"  - {p_isim}: {p_adet} porsiyon\n"
-    rapor_metni += f"===================================\n"
+    rapor_metni += f"==================================-\n"
 
     filename = f"gun_sonu_{tarih.replace('.', '_')}.txt"
     with open(filename, "w", encoding="utf-8") as f:
@@ -336,16 +332,4 @@ async def gun_sonu_kapat(update: Update):
 def main():
     keep_alive()
     
-    TOKEN = "8812573804:AAHkQqgBQUh68rdDP-M2RSmPEWBuHXBFd6c"
-    
-    app = ApplicationBuilder().token(TOKEN).build()
-
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("gunsonu", gun_sonu_kapat_komut))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, mesaj_yoneticisi))
-
-    print("Devran Döner Güvenli ve Hızlı Bot Çalışıyor...")
-    app.run_polling()
-
-if __name__ == '__main__':
-    main()
+    TOKEN = "8812573804:AAHkQqgBQUh68rdDP-M2RSmPEWBuHXBFd6c
