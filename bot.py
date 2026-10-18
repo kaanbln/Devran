@@ -237,6 +237,8 @@ async def salon_gir(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if text == "⬅️ İptal":
         await update.message.reply_text("İşlem iptal edildi.", reply_markup=ana_klavye())
         return ISLEM_SECIMI
+    if text in ["🍽 Salon Satışı", "📦 Paket Satışı", "🥖 Fırın Ekmek Ekle", "🥪 Personel Yemeği", "📊 Anlık Rapor", "🔴 Gün Sonu Kapat"]:
+        return await islem_secimi(update, context)
     try:
         adet = int(text)
         increment_veri('salon_adet', adet)
@@ -257,6 +259,8 @@ async def paket_gir(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if text == "⬅️ İptal":
         await update.message.reply_text("İşlem iptal edildi.", reply_markup=ana_klavye())
         return ISLEM_SECIMI
+    if text in ["🍽 Salon Satışı", "📦 Paket Satışı", "🥖 Fırın Ekmek Ekle", "🥪 Personel Yemeği", "📊 Anlık Rapor", "🔴 Gün Sonu Kapat"]:
+        return await islem_secimi(update, context)
     try:
         adet = int(text)
         increment_veri('paket_adet', adet)
@@ -277,6 +281,8 @@ async def ekmek_gir(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if text == "⬅️ İptal":
         await update.message.reply_text("İşlem iptal edildi.", reply_markup=ana_klavye())
         return ISLEM_SECIMI
+    if text in ["🍽 Salon Satışı", "📦 Paket Satışı", "🥖 Fırın Ekmek Ekle", "🥪 Personel Yemeği", "📊 Anlık Rapor", "🔴 Gün Sonu Kapat"]:
+        return await islem_secimi(update, context)
     try:
         adet = int(text)
         increment_veri('ekmek_adet', adet)
@@ -297,6 +303,8 @@ async def aperatif_gir(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if text == "⬅️ İptal":
         await update.message.reply_text("İşlem iptal edildi.", reply_markup=ana_klavye())
         return ISLEM_SECIMI
+    if text in ["🍽 Salon Satışı", "📦 Paket Satışı", "🥖 Fırın Ekmek Ekle", "🥪 Personel Yemeği", "📊 Anlık Rapor", "🔴 Gün Sonu Kapat"]:
+        return await islem_secimi(update, context)
     try:
         parçalar = text.strip().split()
         isim = " ".join(parçalar[:-1])
@@ -370,9 +378,9 @@ async def gun_sonu_kapat(update: Update, context: ContextTypes.DEFAULT_TYPE):
     toplam_porsiyon = s_adet + p_adet
     tarih = v.get('tarih', datetime.now().strftime("%d.%m.%Y"))
 
-    rapor_metni = f"==================================-\n"
+    rapor_metni = f"===================================\n"
     rapor_metni += f"      DEVRAN DÖNER GÜN SONU RAPORU\n"
-    rapor_metni += f"==================================-\n"
+    rapor_metni += f"===================================\n"
     rapor_metni += f"Tarih          : {tarih}\n"
     rapor_metni += f"Takılan Döner  : {v['baslangic_kilo']} kg\n"
     rapor_metni += f"Fırın Ekmeği   : {v['ekmek_adet']} adet\n"
@@ -388,7 +396,7 @@ async def gun_sonu_kapat(update: Update, context: ContextTypes.DEFAULT_TYPE):
         rapor_metni += f"Personel Yemekleri:\n"
         for p_isim, p_adet in v['personel'].items():
             rapor_metni += f"  - {p_isim}: {p_adet} porsiyon\n"
-    rapor_metni += f"==================================-\n"
+    rapor_metni += f"===================================\n"
 
     filename = f"gun_sonu_{tarih.replace('.', '_')}.txt"
     with open(filename, "w", encoding="utf-8") as f:
@@ -416,7 +424,7 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def main():
     keep_alive()
     
-    TOKEN = "8812573804:AAG5SqBafwpjmup-qZrIzqGmE6JspX-_pdE"
+    TOKEN = "8812573804:AAHiRSD09llbvlAuunVYB2Q0s_kN-Z3tcyc"
     
     app = ApplicationBuilder().token(TOKEN).build()
 
